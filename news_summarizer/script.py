@@ -2,47 +2,56 @@ import json
 from dotenv import load_dotenv
 import requests
 from newspaper import Article
-from langchain.schema import (
-    HumanMessage
-)
+from langchain.schema import HumanMessage
 from langchain.chat_models import ChatOpenAI
+
 load_dotenv()
 
-headers = {
+HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36'
 }
 
-article_url = "https://www.artificialintelligence-news.com/2022/01/25/meta-claims-new-ai-supercomputer-will-set-records/"
+def fetch_article_content(url: str) -> str:
+    session = requests.Session()
+    response = session.get(url, headers=HEADERS, timeout=10)
 
-session = requests.Session()
+    if response.status_code != 200:
+        raise ValueError(f"Failed to fetch article at {url}")
 
-try:
-    response = session.get(article_url, headers=headers, timeout=10)
+    article = Article(url)
+    article.download()
+    article.parse()
 
-    if response.status_code == 200:
-        article = Article(article_url)
-        article.download()
-        article.parse()
+    return article.title, article.text
 
-        article_title = article.title
-        article_text = article.text
-        template = """You are a very good assistant that summarizes online articles.
-        Here's the article you want to summarize.
-        ==================
-        Title: {article_title}
-        {article_text}
-        ==================
-        Write a summary of the previous article.
-        """
+def generate_prompt(title: str, text: str) -> str:
+    template = """
+    You are a very good assistant that summarizes online articles.
+    Here's the article you want to summarize.
+    ==================
+    Title: {article_title}
+    {article_text}
+    ==================
+    Write a summary of the previous article.
+    """
+    return template.format(article_title=title, article_text=text)
 
-        prompt = template.format(article_title=article.title, article_text=article.text)
+def get_summary(prompt: str) -> str:
+    messages = [HumanMessage(content=prompt)]
+    chat = ChatOpenAI(model_name="gpt-4", temperature=0)
+    return chat(messages).content
 
-        messages = [HumanMessage(content=prompt)]
-        chat = ChatOpenAI(model_name="gpt-4", temperature=0)
-        summary = chat(messages)
-        print(summary.content)
+def main():
+    article_url = "https://www.artificialintelligence-news.com/2022/01/25/meta-claims-new-ai-supercomputer-will-set-records/"
+    try:
+        article_title, article_text = fetch_article_content(article_url)
+        prompt = generate_prompt(article_title, article_text)
+        summary = get_summary(prompt)
+        print(summary)
+    except ValueError as e:
+        print(e)
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
 
-    else:
-        print(f"Failed to fetch article at {article_url}")
-except Exception as e:
-    print(f"Error occurred while fetching article at {article_url}: {e}")
+if __name__ == "__main__":
+    main()
