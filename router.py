@@ -2,11 +2,11 @@ import os
 import subprocess
 
 def run_script(script_path):
-
     subprocess.run(['python', script_path])
 
 if __name__ == '__main__':
-    subfolders = [f.path for f in os.scandir() if f.is_dir()]
+    directory_path = './projects'
+    subfolders = [f.path for f in os.scandir(directory_path) if f.is_dir()]
     scripts = [os.path.join(subfolder, 'script.py') for subfolder in subfolders]
 
     for i, script in enumerate(scripts, start=1):
